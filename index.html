@@ -1,97 +1,160 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>Трекер долгов</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Трекер долгов</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { background-color: #111827; color: #f9fafb; font-family: monospace; }
+    input[type=number] { background: transparent; border: none; width: 100%; color: #f9fafb; text-align: center; }
+    input[type=number]:focus { outline: none; background: #1f2937; }
+    .badge { background-color: #10b981; color: black; font-weight: bold; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-right: 4px; }
+  </style>
 </head>
-<body class="bg-gray-100 text-sm">
-    <div class="max-w-4xl mx-auto p-4">
-        <h1 class="text-2xl font-bold mb-4 text-center">📊 Трекер погашения долгов</h1>
-        <p class="mb-6 text-center">Редактируйте план и отслеживайте прогресс. Все данные сохраняются локально в браузере.</p>
-        <div class="bg-white p-4 rounded shadow">
-            <h2 class="text-lg font-semibold mb-2">Текущий прогресс</h2>
-            <p>Общий долг: <span id="totalDebt">0 ₽</span></p>
-            <p>Выплачено: <span id="totalPaid">0 ₽</span></p>
-            <p>Финансовая подушка: <span id="totalReserve">0 ₽</span></p>
-            <p>Прогресс: <span id="totalProgress">0%</span></p>
-        </div>
-        <div class="mt-4 bg-white p-4 rounded shadow">
-            <h2 class="text-lg font-semibold mb-2">Месячные выплаты</h2>
-            <table class="table-auto w-full text-xs" id="paymentsTable">
-                <thead>
-                    <tr>
-                        <th class="border px-2 py-1">Месяц</th>
-                        <th class="border px-2 py-1">Ипотека</th>
-                        <th class="border px-2 py-1">Авто</th>
-                        <th class="border px-2 py-1">Родителям</th>
-                        <th class="border px-2 py-1">Маме</th>
-                        <th class="border px-2 py-1">Кредит</th>
-                        <th class="border px-2 py-1">PS5</th>
-                        <th class="border px-2 py-1">Резерв</th>
-                    </tr>
-                </thead>
-                <tbody id="paymentsBody">
-                </tbody>
-            </table>
-        </div>
+<body class="p-4">
+  <div class="max-w-5xl mx-auto">
+    <h1 class="text-3xl font-bold mb-2 text-center text-green-400">💀 Трекер Погашения Долгов</h1>
+    <p class="text-center mb-6 text-gray-300">Следи за выплатами, радуйся прогрессу, кайфуй от порядка</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <div class="bg-gray-900 p-4 rounded-xl shadow">
+        <h2 class="text-xl font-semibold mb-2">📊 Общая статистика</h2>
+        <p>Остаток долга: <span id="totalDebt" class="text-red-400">–</span></p>
+        <p>Выплачено: <span id="totalPaid" class="text-green-400">–</span></p>
+        <p>Фин. подушка: <span id="totalReserve" class="text-blue-400">–</span></p>
+        <p>Прогресс: <span id="totalProgress">–</span></p>
+      </div>
+      <div class="bg-gray-900 p-4 rounded-xl shadow">
+        <canvas id="debtChart"></canvas>
+      </div>
     </div>
+
+    <div class="bg-gray-900 p-4 rounded-xl shadow mb-6 overflow-x-auto">
+      <h2 class="text-xl font-semibold mb-2">📅 Выплаты по месяцам</h2>
+      <table class="table-auto w-full text-xs text-center">
+        <thead>
+          <tr>
+            <th>Месяц</th><th>Ипотека</th><th>Авто</th><th>Родителям</th><th>Маме</th><th>Кредит</th><th>PS5</th><th>Резерв</th>
+          </tr>
+        </thead>
+        <tbody id="paymentsBody" class="divide-y divide-gray-700"></tbody>
+      </table>
+    </div>
+
+    <div class="bg-gray-900 p-4 rounded-xl shadow">
+      <h2 class="text-xl font-semibold mb-2">🏆 Достижения</h2>
+      <div id="achievements" class="flex flex-wrap"></div>
+    </div>
+  </div>
+
 <script>
 let debtData = [
-    {month: 'Июль 2025', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0},
-    {month: 'Август 2025', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0},
-    {month: 'Сентябрь 2025', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0}
+  {month: 'Июль', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0},
+  {month: 'Август', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0},
+  {month: 'Сентябрь', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0}
 ];
+
 let initialBalances = {
-    ps5: 28000,
-    credit: 400000,
-    auto: 1500000,
-    mother: 400000,
-    parents: 400000,
-    mortgage: 2850508
+  ps5: 28000,
+  credit: 400000,
+  auto: 1500000,
+  mother: 400000,
+  parents: 400000,
+  mortgage: 2850508
 };
 
+function saveToStorage() {
+  localStorage.setItem("debtData", JSON.stringify(debtData));
+}
+
+function loadFromStorage() {
+  const saved = localStorage.getItem("debtData");
+  if (saved) debtData = JSON.parse(saved);
+}
+
 function updateTable() {
-    const tbody = document.getElementById('paymentsBody');
-    tbody.innerHTML = '';
-    debtData.forEach(row => {
-        tbody.innerHTML += `<tr>
-            <td class="border px-2 py-1">${row.month}</td>
-            <td class="border px-2 py-1">${row.mortgage}</td>
-            <td class="border px-2 py-1">${row.auto}</td>
-            <td class="border px-2 py-1">${row.parents}</td>
-            <td class="border px-2 py-1">${row.mother}</td>
-            <td class="border px-2 py-1">${row.credit}</td>
-            <td class="border px-2 py-1">${row.ps5}</td>
-            <td class="border px-2 py-1">${row.reserve}</td>
-        </tr>`;
-    });
+  const tbody = document.getElementById('paymentsBody');
+  tbody.innerHTML = '';
+  debtData.forEach((row, i) => {
+    tbody.innerHTML += `<tr>` +
+      `<td>${row.month}</td>` +
+      ['mortgage','auto','parents','mother','credit','ps5','reserve'].map(key =>
+        `<td><input type="number" value="${row[key]}" onchange="editCell(${i}, '${key}', this.value)"></td>`
+      ).join('') +
+      `</tr>`;
+  });
+}
+
+function editCell(i, key, val) {
+  debtData[i][key] = +val;
+  saveToStorage();
+  updateStats();
+  updateChart();
+  updateAchievements();
 }
 
 function updateStats() {
-    let paid = {ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0};
-    debtData.forEach(r => {
-        paid.ps5 += r.ps5;
-        paid.credit += r.credit;
-        paid.auto += r.auto;
-        paid.mother += r.mother;
-        paid.parents += r.parents;
-        paid.mortgage += r.mortgage;
-        paid.reserve += r.reserve;
-    });
-    const totalPaid = paid.ps5 + paid.credit + paid.auto + paid.mother + paid.parents + paid.mortgage;
-    const totalDebt = initialBalances.ps5 + initialBalances.credit + initialBalances.auto + initialBalances.mother + initialBalances.parents + initialBalances.mortgage - totalPaid;
-    const progress = Math.round((totalPaid / (totalPaid + totalDebt)) * 100);
-    document.getElementById('totalDebt').innerText = totalDebt.toLocaleString() + ' ₽';
-    document.getElementById('totalPaid').innerText = totalPaid.toLocaleString() + ' ₽';
-    document.getElementById('totalReserve').innerText = paid.reserve.toLocaleString() + ' ₽';
-    document.getElementById('totalProgress').innerText = progress + '%';
+  let paid = {ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0};
+  debtData.forEach(r => {
+    for (let k in paid) paid[k] += r[k];
+  });
+  const totalPaid = paid.ps5 + paid.credit + paid.auto + paid.mother + paid.parents + paid.mortgage;
+  const totalDebt = Object.values(initialBalances).reduce((s,v)=>s+v,0) - totalPaid;
+  const progress = Math.round((totalPaid / (totalPaid + totalDebt)) * 100);
+  document.getElementById('totalDebt').innerText = totalDebt.toLocaleString() + ' ₽';
+  document.getElementById('totalPaid').innerText = totalPaid.toLocaleString() + ' ₽';
+  document.getElementById('totalReserve').innerText = paid.reserve.toLocaleString() + ' ₽';
+  document.getElementById('totalProgress').innerText = progress + '%';
+}
+
+function updateAchievements() {
+  const box = document.getElementById("achievements");
+  box.innerHTML = "";
+  const paid = debtData.reduce((a,r)=>({
+    ps5: a.ps5 + r.ps5, credit: a.credit + r.credit, auto: a.auto + r.auto,
+    mother: a.mother + r.mother, parents: a.parents + r.parents, mortgage: a.mortgage + r.mortgage,
+    reserve: a.reserve + r.reserve
+  }), {ps5:0, credit:0, auto:0, mother:0, parents:0, mortgage:0, reserve:0});
+  if (paid.ps5 >= 28000) box.innerHTML += `<span class="badge">🎮 PS5 выплачен</span>`;
+  if (paid.credit >= 400000) box.innerHTML += `<span class="badge">💳 Кредит погашен</span>`;
+  if (paid.reserve >= 500000) box.innerHTML += `<span class="badge">💎 Подушка 500K+</span>`;
+  if (paid.auto >= 750000) box.innerHTML += `<span class="badge">🚗 Полпути по авто</span>`;
+}
+
+let chart;
+function updateChart() {
+  const ctx = document.getElementById("debtChart").getContext("2d");
+  const paid = debtData.reduce((a,r)=>({
+    ps5: a.ps5 + r.ps5, credit: a.credit + r.credit, auto: a.auto + r.auto,
+    mother: a.mother + r.mother, parents: a.parents + r.parents, mortgage: a.mortgage + r.mortgage,
+    reserve: a.reserve + r.reserve
+  }), {ps5:0, credit:0, auto:0, mother:0, parents:0, mortgage:0, reserve:0});
+  const data = {
+    labels: ['Ипотека','Авто','Родителям','Маме','Кредит','PS5'],
+    datasets: [{
+      data: [
+        initialBalances.mortgage - paid.mortgage,
+        initialBalances.auto - paid.auto,
+        initialBalances.parents - paid.parents,
+        initialBalances.mother - paid.mother,
+        initialBalances.credit - paid.credit,
+        initialBalances.ps5 - paid.ps5
+      ],
+      backgroundColor: ['#ef4444','#f97316','#facc15','#10b981','#3b82f6','#a855f7']
+    }]
+  };
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {type: 'doughnut', data});
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    updateTable();
-    updateStats();
+  loadFromStorage();
+  updateTable();
+  updateStats();
+  updateChart();
+  updateAchievements();
 });
 </script>
 </body>
