@@ -1,22 +1,47 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Трекер долгов</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Финансовый трекер долгов</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { background-color: #111827; color: #f9fafb; font-family: monospace; }
-    input[type=number] { background: transparent; border: none; width: 100%; color: #f9fafb; text-align: center; }
-    input[type=number]:focus { outline: none; background: #1f2937; }
-    .badge { background-color: #10b981; color: black; font-weight: bold; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; margin-right: 4px; }
+    body {
+      background-color: #111827;
+      color: #f9fafb;
+      font-family: monospace;
+    }
+    input[type=number] {
+      background: transparent;
+      border: none;
+      width: 100%;
+      color: #f9fafb;
+      text-align: center;
+    }
+    input[type=number]:focus {
+      outline: none;
+      background: #1f2937;
+    }
+    .badge {
+      background-color: #10b981;
+      color: black;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    th, td {
+      border: 1px solid #374151;
+    }
   </style>
 </head>
 <body class="p-4">
-  <div class="max-w-5xl mx-auto">
+  <div class="max-w-7xl mx-auto">
     <h1 class="text-3xl font-bold mb-2 text-center text-green-400">💀 Трекер Погашения Долгов</h1>
-    <p class="text-center mb-6 text-gray-300">Следи за выплатами, радуйся прогрессу, кайфуй от порядка</p>
+    <p class="text-center mb-6 text-gray-300">С июля 2025 по декабрь 2032 — полный контроль над выплатами и подушкой</p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
       <div class="bg-gray-900 p-4 rounded-xl shadow">
@@ -32,14 +57,21 @@
     </div>
 
     <div class="bg-gray-900 p-4 rounded-xl shadow mb-6 overflow-x-auto">
-      <h2 class="text-xl font-semibold mb-2">📅 Выплаты по месяцам</h2>
-      <table class="table-auto w-full text-xs text-center">
-        <thead>
+      <h2 class="text-xl font-semibold mb-2">📅 Помесячные выплаты</h2>
+      <table class="table-auto w-full text-xs text-center" id="paymentTable">
+        <thead class="bg-gray-800 sticky top-0">
           <tr>
-            <th>Месяц</th><th>Ипотека</th><th>Авто</th><th>Родителям</th><th>Маме</th><th>Кредит</th><th>PS5</th><th>Резерв</th>
+            <th>Месяц</th>
+            <th>PS5</th>
+            <th>Кредит</th>
+            <th>Авто</th>
+            <th>Маме</th>
+            <th>Родителям</th>
+            <th>Ипотека</th>
+            <th>Резерв</th>
           </tr>
         </thead>
-        <tbody id="paymentsBody" class="divide-y divide-gray-700"></tbody>
+        <tbody id="paymentBody"></tbody>
       </table>
     </div>
 
@@ -50,18 +82,25 @@
   </div>
 
 <script>
-let debtData = [
-  {month: 'Июль', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0},
-  {month: 'Август', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0},
-  {month: 'Сентябрь', ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0}
-];
+const startDate = new Date("2025-07-01");
+const endDate = new Date("2032-12-01");
+const months = [];
+let d = new Date(startDate);
+while (d <= endDate) {
+  months.push(new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(d));
+  d.setMonth(d.getMonth() + 1);
+}
 
-let initialBalances = {
+let debtData = months.map(month => ({
+  month, ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0
+}));
+
+const balances = {
   ps5: 28000,
   credit: 400000,
   auto: 1500000,
   mother: 400000,
-  parents: 400000,
+  parents: 500000,
   mortgage: 2850508
 };
 
@@ -75,15 +114,15 @@ function loadFromStorage() {
 }
 
 function updateTable() {
-  const tbody = document.getElementById('paymentsBody');
-  tbody.innerHTML = '';
+  const tbody = document.getElementById("paymentBody");
+  tbody.innerHTML = "";
   debtData.forEach((row, i) => {
-    tbody.innerHTML += `<tr>` +
-      `<td>${row.month}</td>` +
-      ['mortgage','auto','parents','mother','credit','ps5','reserve'].map(key =>
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="text-left px-2">${row.month}</td>` +
+      ["ps5","credit","auto","mother","parents","mortgage","reserve"].map(key =>
         `<td><input type="number" value="${row[key]}" onchange="editCell(${i}, '${key}', this.value)"></td>`
-      ).join('') +
-      `</tr>`;
+      ).join("");
+    tbody.appendChild(tr);
   });
 }
 
@@ -96,60 +135,57 @@ function editCell(i, key, val) {
 }
 
 function updateStats() {
-  let paid = {ps5: 0, credit: 0, auto: 0, mother: 0, parents: 0, mortgage: 0, reserve: 0};
-  debtData.forEach(r => {
-    for (let k in paid) paid[k] += r[k];
+  const total = {ps5:0, credit:0, auto:0, mother:0, parents:0, mortgage:0, reserve:0};
+  debtData.forEach(row => {
+    for (let k in total) total[k] += row[k];
   });
-  const totalPaid = paid.ps5 + paid.credit + paid.auto + paid.mother + paid.parents + paid.mortgage;
-  const totalDebt = Object.values(initialBalances).reduce((s,v)=>s+v,0) - totalPaid;
-  const progress = Math.round((totalPaid / (totalPaid + totalDebt)) * 100);
-  document.getElementById('totalDebt').innerText = totalDebt.toLocaleString() + ' ₽';
-  document.getElementById('totalPaid').innerText = totalPaid.toLocaleString() + ' ₽';
-  document.getElementById('totalReserve').innerText = paid.reserve.toLocaleString() + ' ₽';
-  document.getElementById('totalProgress').innerText = progress + '%';
+  const paid = total.ps5 + total.credit + total.auto + total.mother + total.parents + total.mortgage;
+  const target = Object.values(balances).reduce((a,b) => a+b, 0);
+  const remaining = target - paid;
+  document.getElementById("totalDebt").textContent = `${remaining.toLocaleString()} ₽`;
+  document.getElementById("totalPaid").textContent = `${paid.toLocaleString()} ₽`;
+  document.getElementById("totalReserve").textContent = `${total.reserve.toLocaleString()} ₽`;
+  document.getElementById("totalProgress").textContent = `${Math.round(paid / target * 100)}%`;
 }
 
 function updateAchievements() {
-  const box = document.getElementById("achievements");
-  box.innerHTML = "";
-  const paid = debtData.reduce((a,r)=>({
-    ps5: a.ps5 + r.ps5, credit: a.credit + r.credit, auto: a.auto + r.auto,
-    mother: a.mother + r.mother, parents: a.parents + r.parents, mortgage: a.mortgage + r.mortgage,
-    reserve: a.reserve + r.reserve
-  }), {ps5:0, credit:0, auto:0, mother:0, parents:0, mortgage:0, reserve:0});
-  if (paid.ps5 >= 28000) box.innerHTML += `<span class="badge">🎮 PS5 выплачен</span>`;
-  if (paid.credit >= 400000) box.innerHTML += `<span class="badge">💳 Кредит погашен</span>`;
-  if (paid.reserve >= 500000) box.innerHTML += `<span class="badge">💎 Подушка 500K+</span>`;
-  if (paid.auto >= 750000) box.innerHTML += `<span class="badge">🚗 Полпути по авто</span>`;
+  const div = document.getElementById("achievements");
+  div.innerHTML = "";
+  const total = {ps5:0, credit:0, auto:0, mother:0, parents:0, mortgage:0, reserve:0};
+  debtData.forEach(row => {
+    for (let k in total) total[k] += row[k];
+  });
+  if (total.ps5 >= balances.ps5) div.innerHTML += `<span class="badge">🎮 PS5 выплачен</span>`;
+  if (total.credit >= balances.credit) div.innerHTML += `<span class="badge">💳 Кредитка закрыта</span>`;
+  if (total.auto >= balances.auto) div.innerHTML += `<span class="badge">🚗 Авто выплачен</span>`;
+  if (total.mother >= balances.mother && total.parents >= balances.parents) div.innerHTML += `<span class="badge">👪 Семейные долги закрыты</span>`;
+  if (total.reserve >= 900000) div.innerHTML += `<span class="badge">🛡 Подушка ≥ 900K</span>`;
+  if (total.mortgage >= balances.mortgage) div.innerHTML += `<span class="badge">🏠 Ипотека закрыта</span>`;
 }
 
 let chart;
 function updateChart() {
   const ctx = document.getElementById("debtChart").getContext("2d");
-  const paid = debtData.reduce((a,r)=>({
-    ps5: a.ps5 + r.ps5, credit: a.credit + r.credit, auto: a.auto + r.auto,
-    mother: a.mother + r.mother, parents: a.parents + r.parents, mortgage: a.mortgage + r.mortgage,
-    reserve: a.reserve + r.reserve
-  }), {ps5:0, credit:0, auto:0, mother:0, parents:0, mortgage:0, reserve:0});
-  const data = {
-    labels: ['Ипотека','Авто','Родителям','Маме','Кредит','PS5'],
-    datasets: [{
-      data: [
-        initialBalances.mortgage - paid.mortgage,
-        initialBalances.auto - paid.auto,
-        initialBalances.parents - paid.parents,
-        initialBalances.mother - paid.mother,
-        initialBalances.credit - paid.credit,
-        initialBalances.ps5 - paid.ps5
-      ],
-      backgroundColor: ['#ef4444','#f97316','#facc15','#10b981','#3b82f6','#a855f7']
-    }]
-  };
+  const total = {ps5:0, credit:0, auto:0, mother:0, parents:0, mortgage:0};
+  debtData.forEach(row => {
+    for (let k in total) total[k] += row[k];
+  });
+  const labels = Object.keys(balances);
+  const data = labels.map(k => balances[k] - total[k]);
   if (chart) chart.destroy();
-  chart = new Chart(ctx, {type: 'doughnut', data});
+  chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ["PS5","Кредит","Авто","Маме","Родителям","Ипотека"],
+      datasets: [{
+        data: data,
+        backgroundColor: ['#ec4899','#f59e0b','#10b981','#6366f1','#a78bfa','#ef4444']
+      }]
+    }
+  });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   loadFromStorage();
   updateTable();
   updateStats();
@@ -159,3 +195,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
