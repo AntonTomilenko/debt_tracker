@@ -23,7 +23,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
     th, td {
       border: 1px solid #333;
@@ -44,9 +44,9 @@
     input:focus { outline: 1px solid #4ade80; }
     select { margin-bottom: 1rem; background: #1a1a1a; color: #eee; padding: 0.3rem; }
     .chart-container { max-width: 800px; margin: 0 auto; }
-    .achievements { margin-top: 2rem; text-align: center; }
-    .achievement { display: inline-block; margin: 1rem; padding: 1rem; border: 2px solid #444; border-radius: 10px; background: #1a1a1a; color: #aaa; }
-    .achievement.completed { border-color: #4ade80; background: #1f3a1f; color: #4ade80; }
+    .achievements { margin: 2rem auto 1rem; text-align: center; max-width: 800px; }
+    .achievement { display: inline-block; margin: 0.5rem; padding: 1rem; border: 2px solid #444; border-radius: 10px; background: #1a1a1a; color: #aaa; min-width: 120px; transition: 0.3s ease-in-out; }
+    .achievement.completed { border-color: #4ade80; background: #1f3a1f; color: #4ade80; transform: scale(1.05); }
   </style>
 </head>
 
@@ -84,6 +84,7 @@
     <canvas id="pieChart" height="300" style="margin-top: 2rem;"></canvas>
   </div>
 
+  <h2>Достижения</h2>
   <div class="achievements" id="achievements">
     <div class="achievement" id="ps5-paid">🎮 PS5 выплачен</div>
     <div class="achievement" id="card-paid">💳 Кредитка закрыта</div>
@@ -95,27 +96,35 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const months = [
-      "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-      "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
-    ];
-
+    const months = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
     const categories = ["PS5", "Кредитка", "Автокредит", "Маме", "Родителям", "Ипотека"];
 
     const planData = {
-      2025: {}, 2026: {}, 2027: {}, 2028: {}, 2029: {}, 2030: {}, 2031: {}, 2032: {}
+      2025: {
+        "Июль": { "PS5": 28000, "Кредитка": 10000, "Ипотека": 20500 },
+        "Август": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
+        "Сентябрь": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
+        "Октябрь": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
+        "Ноябрь": { "Автокредит": 85000, "Ипотека": 20500 },
+        "Декабрь": { "Автокредит": 85000, "Ипотека": 20500 }
+      },
+      2026: {},
+      2027: {},
+      2028: {},
+      2029: {},
+      2030: {},
+      2031: {},
+      2032: {}
     };
+
+    for (let year = 2026; year <= 2032; year++) {
+      planData[year] = {};
+      months.forEach(month => {
+        planData[year][month] = {};
+      });
+    }
 
     let factData = JSON.parse(localStorage.getItem("factData")) || JSON.parse(JSON.stringify(planData));
-
-    planData["2025"] = {
-      "Июль": { "PS5": 28000, "Кредитка": 10000, "Ипотека": 20500 },
-      "Август": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
-      "Сентябрь": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
-      "Октябрь": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
-      "Ноябрь": { "Автокредит": 85000, "Ипотека": 20500 },
-      "Декабрь": { "Автокредит": 85000, "Ипотека": 20500 },
-    };
 
     function renderTable() {
       const year = document.getElementById("year").value;
