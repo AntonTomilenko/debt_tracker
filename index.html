@@ -1,273 +1,221 @@
-<!DOCTYPE html>
-<html lang="ru">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Финансовый трекер долгов</title>
-  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Golos Text', sans-serif;
-      background: #111;
-      color: #eee;
-      padding: 1rem;
-    }
-    h1, h2 {
-      text-align: center;
-      margin: 1rem 0;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 1.5rem;
-    }
-    th, td {
-      border: 1px solid #333;
-      padding: 0.5rem;
-      text-align: center;
-    }
-    th {
-      background: #222;
-    }
-    input {
-      width: 100%;
-      background: #1a1a1a;
-      border: none;
-      color: #eee;
-      text-align: center;
-      padding: 0.3rem;
-    }
-    input:focus { outline: 1px solid #4ade80; }
-    select { margin-bottom: 1rem; background: #1a1a1a; color: #eee; padding: 0.3rem; }
-    .chart-container { max-width: 800px; margin: 0 auto; }
-    .achievements { margin: 1rem auto; text-align: center; max-width: 800px; }
-    .achievement { display: inline-block; margin: 0.5rem; padding: 1rem; border: 2px solid #444; border-radius: 10px; background: #1a1a1a; color: #aaa; min-width: 120px; transition: 0.3s ease-in-out; }
-    .achievement.completed { border-color: #4ade80; background: #1f3a1f; color: #4ade80; transform: scale(1.05); }
-  </style>
-</head>
-
-<body>
-  <h1>Финансовый трекер: план vs факт</h1>
-
-  <label for="year">Выберите год:</label>
-  <select id="year" onchange="renderTable()">
-    <option value="2025">2025</option>
-    <option value="2026">2026</option>
-    <option value="2027">2027</option>
-    <option value="2028">2028</option>
-    <option value="2029">2029</option>
-    <option value="2030">2030</option>
-    <option value="2031">2031</option>
-    <option value="2032">2032</option>
-  </select>
-
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Месяц</th>
-          <th>Категория</th>
-          <th>План (₽)</th>
-          <th>Факт (₽)</th>
-        </tr>
-      </thead>
-      <tbody id="table-body"></tbody>
-    </table>
+<!DOCTYPE html><html lang="ru"><head>
+<meta charset="UTF-8">
+<title>Фин-трекер: долги и подушка</title>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+body{font-family:system-ui,Arial,sans-serif;margin:0;padding:2rem;background:#f4f6fa}
+h1{margin:0 0 1rem}
+#wrapper{max-width:1300px;margin:auto}
+table{border-collapse:collapse;width:100%;font-size:.86rem;margin-top:1rem}
+th,td{border:1px solid #bac3d6;padding:3px 5px;text-align:right}
+th{background:#e6ecf5}
+td.edit{cursor:pointer}
+td.edit:focus{outline:2px solid #4e7ef8;background:#fff}
+#controls{margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap}
+button{padding:.4rem .8rem;border:1px solid #4e7ef8;background:#4e7ef8;color:#fff;border-radius:4px;cursor:pointer}
+button.secondary{background:#fff;color:#4e7ef8}
+button:disabled{opacity:.4;cursor:default}
+#charts{display:flex;flex-wrap:wrap;gap:2rem;margin-top:2rem}
+canvas{background:#fff;border:1px solid #bac3d6;padding:.4rem}
+.hidden{display:none}
+</style>
+</head><body>
+<div id="wrapper">
+  <h1>Трекер долгов и финансовой подушки</h1>
+  <input type="file" id="fileInput" accept=".csv">
+  <div id="controls" class="hidden">
+    <button id="saveBtn">Сохранить</button>
+    <button id="resetBtn" class="secondary">Сбросить</button>
+    <button id="exportBtn" class="secondary">Экспорт CSV</button>
   </div>
+  <div id="tableContainer" class="hidden"></div>
 
-  <div class="chart-container">
-    <canvas id="planVsFactChart" height="300"></canvas>
-    <canvas id="pieChart" height="300" style="margin-top: 2rem;"></canvas>
+  <div id="charts" class="hidden">
+    <canvas id="debtChart" width="600" height="360"></canvas>
+    <canvas id="reserveChart" width="600" height="360"></canvas>
   </div>
+</div>
 
-  <h2>Достижения</h2>
-  <div class="achievements" id="achievements">
-    <div class="achievement" id="ps5-paid">🎮 PS5 выплачен</div>
-    <div class="achievement" id="card-paid">💳 Кредитка закрыта</div>
-    <div class="achievement" id="car-paid">🚗 Авто выплачен</div>
-    <div class="achievement" id="family-paid">👨‍👩‍👧‍👦 Родне возвращено</div>
-    <div class="achievement" id="mortgage-paid">🏠 Ипотека закрыта</div>
-    <div class="achievement" id="pillow-ready">🛏 Подушка накоплена</div>
-  </div>
+<script>
+const FIELDS_NUMERIC = [
+  'PS5_payment','Credit_min','Credit_extra','Auto_mand','Auto_extra',
+  'Mother_payment','Parents_payment','Mortgage_mand','Mortgage_extra','Reserve_add',
+  'PS5_balance','Credit_balance','Auto_balance','Mother_balance','Parents_balance',
+  'Mortgage_balance','Reserve_balance'
+];
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const months = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
-    const categories = ["PS5", "Кредитка", "Автокредит", "Маме", "Родителям", "Ипотека"];
+const fileInput      = document.getElementById('fileInput');
+const tableContainer = document.getElementById('tableContainer');
+const chartsBlock    = document.getElementById('charts');
+const saveBtn        = document.getElementById('saveBtn');
+const resetBtn       = document.getElementById('resetBtn');
+const exportBtn      = document.getElementById('exportBtn');
+let rows=[], headers=[];
+let debtChart, reserveChart;
 
-    const planData = {
-      2025: {
-        "Июль": { "PS5": 28000, "Кредитка": 10000, "Ипотека": 20500 },
-        "Август": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
-        "Сентябрь": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
-        "Октябрь": { "Кредитка": 60000, "Автокредит": 35000, "Ипотека": 20500 },
-        "Ноябрь": { "Автокредит": 85000, "Ипотека": 20500 },
-        "Декабрь": { "Автокредит": 85000, "Ипотека": 20500 }
-      },
-      2026: {}, 2027: {}, 2028: {}, 2029: {}, 2030: {}, 2031: {}, 2032: {}
-    };
+initFromStorage(); // если данные уже сохранены
 
-    for (let y = 2026; y <= 2032; y++) {
-      months.forEach((month, i) => {
-        planData[y][month] = {};
-        if (y === 2026 || y === 2027) {
-          if (["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь"].includes(month)) {
-            planData[y][month]["Автокредит"] = 85000;
-            planData[y][month]["Ипотека"] = 20500;
-          }
-        }
-        if (y === 2027 && ["Октябрь","Ноябрь","Декабрь"].includes(month)) {
-          planData[y][month]["Маме"] = 50000;
-          planData[y][month]["Ипотека"] = 20500;
-        }
-        if (y === 2028 && ["Январь","Февраль","Март","Апрель","Май"].includes(month)) {
-          planData[y][month]["Маме"] = 50000;
-          planData[y][month]["Ипотека"] = 20500;
-        }
-        if (y === 2028 && ["Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"].includes(month)) {
-          planData[y][month]["Родителям"] = 50000;
-          planData[y][month]["Ипотека"] = 20500;
-        }
-        if (y === 2029 || y === 2030 || y === 2031 || y === 2032) {
-          planData[y][month]["Ипотека"] = 100000;
+fileInput.addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  Papa.parse(file,{
+    header:true,skipEmptyLines:true,
+    complete: res=>{rows=res.data; headers=res.meta.fields; initUI();}
+  });
+});
+
+saveBtn.addEventListener('click', ()=>{
+  localStorage.setItem('finTrackerRows', JSON.stringify(rows));
+  alert('Данные сохранены в браузере');
+});
+
+resetBtn.addEventListener('click', ()=>{
+  if(confirm('Очистить сохранённые данные и перезагрузить страницу?')){
+    localStorage.removeItem('finTrackerRows');
+    location.reload();
+  }
+});
+
+exportBtn.addEventListener('click', ()=>{
+  const csv = Papa.unparse(rows);
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='fin_tracker_export.csv';
+  a.click(); URL.revokeObjectURL(url);
+});
+
+function initFromStorage(){
+  const saved = localStorage.getItem('finTrackerRows');
+  if(saved){
+    rows = JSON.parse(saved);
+    headers = Object.keys(rows[0]);
+    initUI();
+  }
+}
+
+function initUI(){
+  buildTable();
+  recalcBalances();
+  drawCharts();
+  document.getElementById('controls').classList.remove('hidden');
+}
+
+function buildTable(){
+  tableContainer.innerHTML='';
+  const tbl=document.createElement('table');
+  // thead
+  const thead=document.createElement('thead');
+  const htr=document.createElement('tr');
+  headers.forEach(h=>{
+    const th=document.createElement('th'); th.textContent=h; htr.appendChild(th);
+  });
+  thead.appendChild(htr); tbl.appendChild(thead);
+  // tbody
+  const tbody=document.createElement('tbody');
+  rows.forEach((r,ri)=>{
+    const tr=document.createElement('tr');
+    headers.forEach((h,ci)=>{
+      const td=document.createElement('td');
+      td.textContent=r[h];
+      if(FIELDS_NUMERIC.includes(h)) td.classList.add('edit');
+      // make editable for numeric input columns (payments & balances)
+      td.addEventListener('dblclick', ()=>{
+        if(!td.isContentEditable) td.contentEditable='true', td.focus();
+      });
+      td.addEventListener('blur', ()=>{
+        if(td.isContentEditable){
+          td.contentEditable='false';
+          const val=td.textContent.replace(',','.'); // allow comma
+          r[h]=FIELDS_NUMERIC.includes(h)?(parseFloat(val)||0):val;
+          recalcBalances();
+          drawCharts();
         }
       });
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+  tableContainer.appendChild(tbl);
+  tableContainer.classList.remove('hidden');
+}
+
+function recalcBalances(){
+  // пересчитываем балансы на лету
+  const init={
+    PS5:28000, Credit:170000, Auto:1500000,
+    Mother:400000, Parents:500000, Mortgage:2850508, Reserve:0
+  };
+  rows.forEach((r,i)=>{
+    // начисления текущего месяца
+    if(i===0){
+      r.PS5_balance       = Math.max(0, init.PS5 - r.PS5_payment);
+      r.Credit_balance    = Math.max(0, init.Credit - r.Credit_min - r.Credit_extra);
+      r.Auto_balance      = Math.max(0, init.Auto - r.Auto_mand - r.Auto_extra);
+      r.Mother_balance    = Math.max(0, init.Mother - r.Mother_payment);
+      r.Parents_balance   = Math.max(0, init.Parents - r.Parents_payment);
+      r.Mortgage_balance  = Math.max(0, init.Mortgage - r.Mortgage_mand - r.Mortgage_extra);
+      r.Reserve_balance   = init.Reserve + r.Reserve_add;
+    }else{
+      const p=rows[i-1]; // предыдущая строка
+      r.PS5_balance       = Math.max(0, p.PS5_balance - r.PS5_payment);
+      r.Credit_balance    = Math.max(0, p.Credit_balance - r.Credit_min - r.Credit_extra);
+      r.Auto_balance      = Math.max(0, p.Auto_balance - r.Auto_mand - r.Auto_extra);
+      r.Mother_balance    = Math.max(0, p.Mother_balance - r.Mother_payment);
+      r.Parents_balance   = Math.max(0, p.Parents_balance - r.Parents_payment);
+      r.Mortgage_balance  = Math.max(0, p.Mortgage_balance - r.Mortgage_mand - r.Mortgage_extra);
+      r.Reserve_balance   = p.Reserve_balance + r.Reserve_add;
     }
+    // обновим ячейки в DOM
+    const rowEl = tableContainer.querySelector('tbody').children[i];
+    headers.forEach((h,ci)=>{
+      if(FIELDS_NUMERIC.includes(h)){
+        const cell=rowEl.children[ci];
+        cell.textContent=r[h];
+      }
+    });
+  });
+}
 
-    let factData = JSON.parse(localStorage.getItem("factData")) || JSON.parse(JSON.stringify(planData));
+function drawCharts(){
+  const labels = rows.map(r=>r.Month);
+  const buildDataset = (label,field,color) => ({
+      label, data:rows.map(r=>r[field]),
+      borderColor:color, pointRadius:0, tension:.25, borderWidth:2, fill:false
+  });
 
-    function renderTable() {
-      const year = document.getElementById("year").value;
-      const tbody = document.getElementById("table-body");
-      tbody.innerHTML = "";
+  const colors=['#d62728','#ff7f0e','#2ca02c','#9467bd','#8c564b','#1f77b4'];
 
-      months.forEach(month => {
-        categories.forEach(cat => {
-          const tr = document.createElement("tr");
-          const plan = (planData[year]?.[month]?.[cat]) || 0;
-          const fact = (factData[year]?.[month]?.[cat]) || 0;
-          tr.innerHTML = `
-            <td>${month}</td>
-            <td>${cat}</td>
-            <td>${plan.toLocaleString()}</td>
-            <td><input type="number" value="${fact}" onchange="updateFact('${year}','${month}','${cat}', this.value)"></td>
-          `;
-          tbody.appendChild(tr);
-        });
-      });
+  // долги
+  const debtData=[
+    buildDataset('PS5','PS5_balance',colors[0]),
+    buildDataset('Credit','Credit_balance',colors[1]),
+    buildDataset('Auto','Auto_balance',colors[2]),
+    buildDataset('Mother','Mother_balance',colors[3]),
+    buildDataset('Parents','Parents_balance',colors[4]),
+    buildDataset('Mortgage','Mortgage_balance',colors[5])
+  ];
+  if(debtChart) debtChart.destroy();
+  debtChart = new Chart(document.getElementById('debtChart'),{
+    type:'line',
+    data:{labels,datasets:debtData},
+    options:{plugins:{title:{display:true,text:'Остатки долгов'}},scales:{y:{beginAtZero:true}}}
+  });
 
-      updateCharts(year);
-      updateAchievements();
-    }
-
-    function updateFact(year, month, cat, value) {
-      if (!factData[year][month]) factData[year][month] = {};
-      factData[year][month][cat] = parseInt(value) || 0;
-      localStorage.setItem("factData", JSON.stringify(factData));
-      updateCharts(year);
-      updateAchievements();
-    }
-
-    function updateCharts(year) {
-      const totalPlan = [], totalFact = [], pieData = {};
-      months.forEach(month => {
-        let p = 0, f = 0;
-        categories.forEach(cat => {
-          const plan = (planData[year]?.[month]?.[cat]) || 0;
-          const fact = (factData[year]?.[month]?.[cat]) || 0;
-          p += plan;
-          f += fact;
-          pieData[cat] = (pieData[cat] || 0) + fact;
-        });
-        totalPlan.push(p);
-        totalFact.push(f);
-      });
-
-      const ctx = document.getElementById("planVsFactChart").getContext("2d");
-      if (window.pfChart) window.pfChart.destroy();
-      window.pfChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: months,
-          datasets: [
-            {
-              label: 'План (₽)',
-              data: totalPlan,
-              backgroundColor: 'rgba(59,130,246,0.6)'
-            },
-            {
-              label: 'Факт (₽)',
-              data: totalFact,
-              backgroundColor: 'rgba(16,185,129,0.6)'
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              labels: { color: '#eee' }
-            }
-          },
-          scales: {
-            x: {
-              ticks: { color: '#ccc' },
-              grid: { color: '#222' }
-            },
-            y: {
-              ticks: { color: '#ccc' },
-              grid: { color: '#222' }
-            }
-          }
-        }
-      });
-
-      const pieCtx = document.getElementById("pieChart").getContext("2d");
-      if (window.pieChart) window.pieChart.destroy();
-      window.pieChart = new Chart(pieCtx, {
-        type: 'pie',
-        data: {
-          labels: Object.keys(pieData),
-          datasets: [{
-            data: Object.values(pieData),
-            backgroundColor: [
-              '#ef4444','#f97316','#facc15','#22c55e','#3b82f6','#a855f7'
-            ]
-          }]
-        },
-        options: {
-          plugins: {
-            legend: {
-              labels: { color: '#eee' }
-            }
-          }
-        }
-      });
-    }
-
-    function updateAchievements() {
-      const total = { PS5: 0, Кредитка: 0, Автокредит: 0, Маме: 0, Родителям: 0, Ипотека: 0 };
-      Object.values(factData).forEach(yearData => {
-        Object.values(yearData).forEach(monthData => {
-          for (const cat in monthData) {
-            total[cat] += monthData[cat];
-          }
-        });
-      });
-      if (total["PS5"] >= 28000) document.getElementById("ps5-paid").classList.add("completed");
-      if (total["Кредитка"] >= 180000) document.getElementById("card-paid").classList.add("completed");
-      if (total["Автокредит"] >= 1500000) document.getElementById("car-paid").classList.add("completed");
-      if (total["Маме"] >= 400000 && total["Родителям"] >= 500000) document.getElementById("family-paid").classList.add("completed");
-      if (total["Ипотека"] >= 2850008) document.getElementById("mortgage-paid").classList.add("completed");
-      const allFacts = Object.values(total).reduce((a,b)=>a+b,0);
-      if (allFacts >= 1300000) document.getElementById("pillow-ready").classList.add("completed");
-    }
-
-    renderTable();
-  </script>
-</body>
-</html>
+  // подушка
+  if(reserveChart) reserveChart.destroy();
+  reserveChart = new Chart(document.getElementById('reserveChart'),{
+    type:'line',
+    data:{labels,datasets:[{
+      label:'Фонд резерва',data:rows.map(r=>r.Reserve_balance),
+      borderColor:'#17becf',backgroundColor:'rgba(23,190,207,.12)',
+      borderWidth:2,pointRadius:0,tension:.25,fill:true
+    }]},
+    options:{plugins:{title:{display:true,text:'Рост резервного фонда'}},scales:{y:{beginAtZero:true}}}
+  });
+  chartsBlock.classList.remove('hidden');
+}
+</script>
+</body></html>
