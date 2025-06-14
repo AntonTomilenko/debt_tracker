@@ -44,7 +44,7 @@
     input:focus { outline: 1px solid #4ade80; }
     select { margin-bottom: 1rem; background: #1a1a1a; color: #eee; padding: 0.3rem; }
     .chart-container { max-width: 800px; margin: 0 auto; }
-    .achievements { margin: 2rem auto 1rem; text-align: center; max-width: 800px; }
+    .achievements { margin: 1rem auto; text-align: center; max-width: 800px; }
     .achievement { display: inline-block; margin: 0.5rem; padding: 1rem; border: 2px solid #444; border-radius: 10px; background: #1a1a1a; color: #aaa; min-width: 120px; transition: 0.3s ease-in-out; }
     .achievement.completed { border-color: #4ade80; background: #1f3a1f; color: #4ade80; transform: scale(1.05); }
   </style>
@@ -108,19 +108,33 @@
         "Ноябрь": { "Автокредит": 85000, "Ипотека": 20500 },
         "Декабрь": { "Автокредит": 85000, "Ипотека": 20500 }
       },
-      2026: {},
-      2027: {},
-      2028: {},
-      2029: {},
-      2030: {},
-      2031: {},
-      2032: {}
+      2026: {}, 2027: {}, 2028: {}, 2029: {}, 2030: {}, 2031: {}, 2032: {}
     };
 
-    for (let year = 2026; year <= 2032; year++) {
-      planData[year] = {};
-      months.forEach(month => {
-        planData[year][month] = {};
+    for (let y = 2026; y <= 2032; y++) {
+      months.forEach((month, i) => {
+        planData[y][month] = {};
+        if (y === 2026 || y === 2027) {
+          if (["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь"].includes(month)) {
+            planData[y][month]["Автокредит"] = 85000;
+            planData[y][month]["Ипотека"] = 20500;
+          }
+        }
+        if (y === 2027 && ["Октябрь","Ноябрь","Декабрь"].includes(month)) {
+          planData[y][month]["Маме"] = 50000;
+          planData[y][month]["Ипотека"] = 20500;
+        }
+        if (y === 2028 && ["Январь","Февраль","Март","Апрель","Май"].includes(month)) {
+          planData[y][month]["Маме"] = 50000;
+          planData[y][month]["Ипотека"] = 20500;
+        }
+        if (y === 2028 && ["Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"].includes(month)) {
+          planData[y][month]["Родителям"] = 50000;
+          planData[y][month]["Ипотека"] = 20500;
+        }
+        if (y === 2029 || y === 2030 || y === 2031 || y === 2032) {
+          planData[y][month]["Ипотека"] = 100000;
+        }
       });
     }
 
