@@ -14,22 +14,27 @@
 body{margin:0;background:var(--bg);color:#111;padding:1rem;font-size:15px}
 h1{margin:0 0 .8rem;font-size:1.3rem}
 #wrapper{max-width:1500px;margin:auto}
+
 button{margin:.35rem .2rem;padding:.45rem .8rem;border:1px solid var(--blue);
   background:var(--blue);color:#fff;border-radius:4px;font-size:.8rem;cursor:pointer}
 button.secondary{background:#fff;color:var(--blue)}
+
 #tblWrap{overflow-x:auto;margin-top:.6rem}
 table{border-collapse:collapse;width:100%;min-width:1200px;font-size:.78rem}
 th,td{border:1px solid var(--br);padding:2px 4px;text-align:right;white-space:nowrap}
-th{background:#e6ecf5;position:sticky;top:0;z-index:1}
-th.plan{background:#d8eaff}   th.fact{background:#ffe5d6}
-td.edit{cursor:pointer} td.edit:focus{outline:2px solid var(--blue);background:#fff}
-#charts{display:flex;flex-wrap:wrap;gap:1rem;margin-top:1rem}
+th{background:#e6ecf5;position:sticky;top:0;z-index:1;text-align:center}
+th.plan{background:#d8eaff}
+th.fact{background:#ffe5d6}
+td.edit{cursor:pointer}
+td.edit:focus{outline:2px solid var(--blue);background:#fff}
+
+#charts{display:none;flex-wrap:wrap;gap:1rem;margin-top:1rem}
 canvas{background:#fff;border:1px solid var(--br);padding:.3rem;width:100%;max-width:600px;height:320px}
+
 @media(max-width:700px){
   table{font-size:.72rem;min-width:900px}
   canvas{height:260px}
 }
-.hidden{display:none}
 </style>
 </head>
 <body>
@@ -41,114 +46,105 @@ canvas{background:#fff;border:1px solid var(--br);padding:.3rem;width:100%;max-w
   <button id="resetBtn"  class="secondary">Сбросить</button>
 
   <div id="tblWrap"></div>
-  <div id="charts" class="hidden">
+  <div id="charts">
     <canvas id="debtChart"></canvas>
     <canvas id="reserveChart"></canvas>
   </div>
 </div>
 
 <script>
-/* ---------- 1. ПЛАН (формируем программно, чтобы не было «обрыва») ---------- */
+/* ---------- 1. План выплат ---------- */
+const RU = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const ruLabel = (y,m)=>`${RU[m]} ${y}`;
+
+/* генерируем плановый массив */
 function buildPlan(){
-  const rows=[];
-  rows.push({m:"Jul 2025",ps5:28000,crMin:10000,crX:30000,auto:0,autoX:0,mom:0,par:0,rez:50000});
+  const arr=[];
+  arr.push(row(2025,6,{ps5:28000,crMin:10000,crX:30000,rez:50000}));
 
-  rows.push({m:"Aug 2025",ps5:0,crMin:10000,crX:50000,auto:35000,autoX:0,mom:0,par:0,rez:10000});
-  rows.push({m:"Sep 2025",ps5:0,crMin:10000,crX:50000,auto:35000,autoX:0,mom:0,par:0,rez:10000});
-  rows.push({m:"Oct 2025",ps5:0,crMin:30000,crX:0,auto:35000,autoX:0,mom:0,par:0,rez:10000});
+  arr.push(row(2025,7,{crMin:10000,crX:50000,auto:35000,rez:10000}));
+  arr.push(row(2025,8,{crMin:10000,crX:50000,auto:35000,rez:10000}));
+  arr.push(row(2025,9,{crMin:30000,auto:35000,rez:10000}));
 
-  /* Nov-25 → Jun-26 — 8 мес., авто 35 + 50, подушка 10 */
-  for(let i=0;i<8;i++){
-    rows.push(buildRow(2025,10+i,35000,50000,10000));
-  }
-  /* Jul-26 → Sep-27 — 15 мес., авто 35 + 50, подушка 15 */
-  for(let i=0;i<15;i++){
-    rows.push(buildRow(2026,6+i,35000,50000,15000));
-  }
-  /* Oct-27 → May-28 — 8 мес., маме 50, подушка 30 */
-  for(let i=0;i<8;i++){
-    rows.push(buildRow(2027,9+i,0,0,30000,50000,0));
-  }
-  /* Jun-28 → Feb-29 — 9 мес., родителям 50, подушка 30 */
-  for(let i=0;i<9;i++){
-    rows.push(buildRow(2028,5+i,0,0,30000,0,50000));
-  }
-  return rows;
+  // Nov-25 → Jun-26 (8 мес.)
+  loopRows(2025,10,8,{auto:35000,autoX:50000,rez:10000});
+  // Jul-26 → Sep-27 (15 мес.)
+  loopRows(2026,6,15,{auto:35000,autoX:50000,rez:15000});
+  // Oct-27 → May-28 (8 мес., маме)
+  loopRows(2027,9,8,{mom:50000,rez:30000});
+  // Jun-28 → Feb-29 (9 мес., родители)
+  loopRows(2028,5,9,{par:50000,rez:30000});
+  return arr;
 
-  function buildRow(y,mon,auto,autoX,rez,mom=0,par=0){
-    return {
-      m:new Date(y,mon,1).toLocaleString('en',{month:'short',year:'numeric'}).replace(' ',' '),
-      ps5:0,crMin:0,crX:0,auto,autoX,mom,par,rez
-    }
+  function loopRows(y,start,n,opts){
+    for(let i=0;i<n;i++) arr.push(row(y,start+i,opts));
   }
+  function row(y,m,o){return {m:ruLabel(y,m),ps5:0,crMin:0,crX:0,auto:0,autoX:0,mom:0,par:0,rez:0,...o};}
 }
-const planRows=buildPlan();
 
-/* ---------- 2. Константы + начальные балансы ---------- */
-const INIT_BAL={ps5:28000,credit:170000,auto:1500000,mom:400000,par:500000,
-                mortgage:2850508,reserve:0};
-const MORTGAGE=20500;
-const columns=[
-  {k:'ps5', t:'PS5'},
-  {k:'credit', t:'Карта'},
-  {k:'auto', t:'Авто'},
-  {k:'mom', t:'Маме'},
-  {k:'par', t:'Родителям'},
-  {k:'mortgage',t:'Ипотека'},
-  {k:'reserve', t:'Подушка'}
+/* ---------- 2. Константы ---------- */
+const planRows = buildPlan();
+const INIT = {ps5:28000,credit:170000,auto:1500000,mom:400000,par:500000,
+              mortgage:2850508,reserve:0};
+const MORT = 20500;
+const COLS = [
+  {k:'ps5',t:'PS5'},{k:'credit',t:'Карта'},{k:'auto',t:'Авто'},
+  {k:'mom',t:'Маме'},{k:'par',t:'Родителям'},
+  {k:'mortgage',t:'Ипотека'},{k:'reserve',t:'Подушка'}
 ];
 
-/* ---------- 3. Загружаем план + факт из localStorage ---------- */
-let rows=JSON.parse(localStorage.getItem('finRows')||'null')||generateRows();
+/* ---------- 3. План + «нулевые» факты ---------- */
+let rows = JSON.parse(localStorage.getItem('finRows')||'null') || buildRows();
 
-/* ---------- 4. Post-build helpers ---------- */
+/* ---------- 4. Рендер ---------- */
 const tblWrap=document.getElementById('tblWrap');
 renderTable(); drawCharts();
 
 /* ---------- 5. Кнопки ---------- */
 document.getElementById('saveBtn').onclick=()=>{localStorage.setItem('finRows',JSON.stringify(rows));alert('Сохранил!');};
 document.getElementById('resetBtn').onclick=()=>{if(confirm('Очистить факт-данные?')){localStorage.removeItem('finRows');location.reload();}};
-document.getElementById('exportBtn').onclick=()=>downloadCSV();
+document.getElementById('exportBtn').onclick=downloadCSV;
 
 /* ---------- 6. Функции ---------- */
-function generateRows(){
-  const bal={...INIT_BAL};
+function buildRows(){
+  const bal={...INIT};
   return planRows.map((p,i)=>{
-    const mort=MORTGAGE;
-    bal.ps5      = Math.max(0,bal.ps5      - p.ps5);
-    bal.credit   = Math.max(0,bal.credit   - p.crMin - p.crX);
-    bal.auto     = Math.max(0,bal.auto     - p.auto  - p.autoX);
-    bal.mom      = Math.max(0,bal.mom      - p.mom);
-    bal.par      = Math.max(0,bal.par      - p.par);
-    bal.mortgage = Math.max(0,bal.mortgage - mort);
-    bal.reserve  = bal.reserve + p.rez;
+    // снижает ТОЛЬКО плановые балансы
+    bal.ps5=Math.max(0,bal.ps5-p.ps5);
+    bal.credit=Math.max(0,bal.credit-p.crMin-p.crX);
+    bal.auto=Math.max(0,bal.auto-p.auto-p.autoX);
+    bal.mom=Math.max(0,bal.mom-p.mom);
+    bal.par=Math.max(0,bal.par-p.par);
+    bal.mortgage=Math.max(0,bal.mortgage-MORT);
+    bal.reserve+=p.rez;
 
+    // фактические платежи = 0
     return {
       id:i+1, m:p.m,
-      ps5Pl:p.ps5,  ps5Fx:p.ps5,
-      creditPl:p.crMin+p.crX, creditFx:p.crMin+p.crX,
-      autoPl:p.auto+p.autoX,  autoFx:p.auto+p.autoX,
-      momPl:p.mom, momFx:p.mom,
-      parPl:p.par, parFx:p.par,
-      mortgagePl:mort, mortgageFx:mort,
-      reservePl:p.rez, reserveFx:p.rez,
-      ps5Bal:bal.ps5, creditBal:bal.credit, autoBal:bal.auto,
-      momBal:bal.mom, parBal:bal.par, mortgageBal:bal.mortgage,
-      reserveBal:bal.reserve
+      ps5Pl:p.ps5,  ps5Fx:0,
+      creditPl:p.crMin+p.crX, creditFx:0,
+      autoPl:p.auto+p.autoX,  autoFx:0,
+      momPl:p.mom, momFx:0,
+      parPl:p.par, parFx:0,
+      mortgagePl:MORT, mortgageFx:0,
+      reservePl:p.rez, reserveFx:0,
+      ps5Bal:INIT.ps5, creditBal:INIT.credit, autoBal:INIT.auto,
+      momBal:INIT.mom, parBal:INIT.par, mortgageBal:INIT.mortgage,
+      reserveBal:INIT.reserve
     };
   });
 }
 
 function renderTable(){
   let html='<table><thead><tr><th rowspan="2">Месяц</th>';
-  columns.forEach(c=>html+=`<th class="plan" colspan="2">${c.t}</th>`);html+='</tr><tr>';
-  columns.forEach(()=>html+='<th class="plan">план</th><th class="fact">факт</th>');html+='</tr></thead><tbody>';
+  COLS.forEach(c=>html+=`<th class="plan" colspan="2">${c.t}</th>`);html+='</tr><tr>';
+  COLS.forEach(()=>html+='<th class="plan">план</th><th class="fact">факт</th>');html+='</tr></thead><tbody>';
 
   rows.forEach((r,ri)=>{
     html+=`<tr><th style="text-align:left">${r.m}</th>`;
-    columns.forEach(c=>{
+    COLS.forEach(c=>{
       html+=`<td>${fmt(r[c.k+'Pl'])}</td>`
-          +`<td class="edit" data-row="${ri}" data-field="${c.k+'Fx'}" contenteditable="false">${fmt(r[c.k+'Fx'])}</td>`;
+          +`<td class="edit" data-row="${ri}" data-field="${c.k+'Fx'}" contenteditable="false">0</td>`;
     });
     html+='</tr>';
   });
@@ -164,18 +160,18 @@ function renderTable(){
 function updateCell(td){
   const ri=+td.dataset.row, field=td.dataset.field;
   rows[ri][field]=toNum(td.textContent);
-  recalcBalances(); drawCharts(); // перерисовать
+  recalcBalances(); drawCharts();
 }
 
 function recalcBalances(){
-  const bal={...INIT_BAL};
+  const bal={...INIT};
   rows.forEach(r=>{
-    bal.ps5      = Math.max(0,bal.ps5      - r.ps5Fx);
-    bal.credit   = Math.max(0,bal.credit   - r.creditFx);
-    bal.auto     = Math.max(0,bal.auto     - r.autoFx);
-    bal.mom      = Math.max(0,bal.mom      - r.momFx);
-    bal.par      = Math.max(0,bal.par      - r.parFx);
-    bal.mortgage = Math.max(0,bal.mortgage - r.mortgageFx);
+    bal.ps5      = Math.max(0, bal.ps5      - r.ps5Fx);
+    bal.credit   = Math.max(0, bal.credit   - r.creditFx);
+    bal.auto     = Math.max(0, bal.auto     - r.autoFx);
+    bal.mom      = Math.max(0, bal.mom      - r.momFx);
+    bal.par      = Math.max(0, bal.par      - r.parFx);
+    bal.mortgage = Math.max(0, bal.mortgage - r.mortgageFx);
     bal.reserve  = bal.reserve + r.reserveFx;
 
     r.ps5Bal=bal.ps5; r.creditBal=bal.credit; r.autoBal=bal.auto;
@@ -186,21 +182,22 @@ function recalcBalances(){
 
 function drawCharts(){
   const labels=rows.map(r=>r.m);
-  const mk=(l,f,c)=>({label:l,data:rows.map(r=>r[f]),borderColor:c,borderWidth:2,tension:.25,fill:false,pointRadius:0});
+  const mk=(lbl,field,color)=>({label:lbl,data:rows.map(r=>r[field]),
+      borderColor:color,borderWidth:2,tension:.25,pointRadius:0,fill:false});
   const cs=['#d62728','#ff7f0e','#2ca02c','#9467bd','#8c564b','#1f77b4'];
 
-  /* debts */
-  if(window.debtChart)window.debtChart.destroy();
+  if(window.debtChart)debtChart.destroy();
   window.debtChart=new Chart(document.getElementById('debtChart'),{
     type:'line',
     data:{labels,datasets:[
-      mk('PS5','ps5Bal',cs[0]), mk('Карта','creditBal',cs[1]), mk('Авто','autoBal',cs[2]),
-      mk('Маме','momBal',cs[3]), mk('Родителям','parBal',cs[4]), mk('Ипотека','mortgageBal',cs[5])
+      mk('PS5','ps5Bal',cs[0]), mk('Карта','creditBal',cs[1]),
+      mk('Авто','autoBal',cs[2]), mk('Маме','momBal',cs[3]),
+      mk('Родителям','parBal',cs[4]), mk('Ипотека','mortgageBal',cs[5])
     ]},
     options:{plugins:{title:{display:true,text:'Остатки долгов'}},scales:{y:{beginAtZero:true}}}
   });
-  /* reserve */
-  if(window.reserveChart)window.reserveChart.destroy();
+
+  if(window.reserveChart)reserveChart.destroy();
   window.reserveChart=new Chart(document.getElementById('reserveChart'),{
     type:'line',
     data:{labels,datasets:[
@@ -210,25 +207,26 @@ function drawCharts(){
       {label:'Подушка план',data:rows.map(r=>r.reservePl),
        borderColor:'#17becf',borderDash:[4,4],borderWidth:1,pointRadius:0,tension:.25,fill:false}
     ]},
-    options:{plugins:{title:{display:true,text:'Рост финансовой подушки'}},
-             scales:{y:{beginAtZero:true}}}
+    options:{plugins:{title:{display:true,text:'Рост финансовой подушки'}},scales:{y:{beginAtZero:true}}}
   });
-  document.getElementById('charts').classList.remove('hidden');
+
+  document.getElementById('charts').style.display='flex';
 }
 
 function downloadCSV(){
-  let csv='Month,'+columns.map(c=>`${c.t}_plan,${c.t}_fact`).join(',')+'\n';
+  let csv='Month,'+COLS.map(c=>`${c.t}_plan,${c.t}_fact`).join(',')+'\n';
   rows.forEach(r=>{
-    csv+=r.m+','+columns.map(c=>`${r[c.k+'Pl']},${r[c.k+'Fx']}`).join(',')+'\n';
+    csv+=r.m+','+COLS.map(c=>`${r[c.k+'Pl']},${r[c.k+'Fx']}`).join(',')+'\n';
   });
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download='fin_tracker.csv';a.click();URL.revokeObjectURL(url);
 }
 
-function selectAll(el){const r=document.createRange();r.selectNodeContents(el);const s=window.getSelection();s.removeAllRanges();s.addRange(r);}
 function fmt(v){return Number(v).toLocaleString('ru-RU')}
 function toNum(t){return Number(String(t).replace(/\s/g,'').replace(',','.'))||0}
+function selectAll(el){const r=document.createRange();r.selectNodeContents(el);
+  const s=window.getSelection();s.removeAllRanges();s.addRange(r);}
 </script>
 </body>
 </html>
